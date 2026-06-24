@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign In or Register — Pina's Thrift</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="siteNav"></div>
+
+<main class="container">
+  <div class="auth-wrap" id="authBox">
+    <!-- dynamic -->
+  </div>
+</main>
+
+<div id="siteFooter"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+<script>
+mountChrome('');
+
+let view = new URLSearchParams(location.search).get('view') || 'login';
+const box = document.getElementById('authBox');
+
+function render(){
+  if(view==='login') return renderLogin();
+  if(view==='register') return renderRegister();
+  if(view==='otp') return renderOtp();
+  if(view==='forgot') return renderForgot();
+  if(view==='reset') return renderReset();
+}
+
+function tabHeader(active){
+  return `
+    <h2>Welcome to Pina's</h2>
+    <p class="sub">Sign in or create your account to shop and track orders.</p>
+    <div class="tabs">
+      <button class="${active==='login'?'active':''}" onclick="view='login';render()">Sign In</button>
+      <button class="${active==='register'?'active':''}" onclick="view='register';render()">Create Account</button>
+    </div>
+  `;
+}
+
+function renderLogin(){
+  box.innerHTML = tabHeader('login') + `
+    <form onsubmit="doLogin(event)">
+      <div class="field">
+        <label>Mobile Number</label>
+        <input type="tel" id="loginMobile" required placeholder="e.g. 0241234567" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="loginPassword" required placeholder="••••••••" />
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Sign In</button>
+      <div class="form-foot">
+        <span class="text-muted">New here? <a href="#" onclick="view='register';render();return false">Create account</a></span>
+        <a href="#" onclick="view='forgot';render();return false">Forgot password?</a>
+      </div>
+    </form>
+  `;
+}
+
+function renderRegister(){
+  box.innerHTML = tabHeader('register') + `
+    <form onsubmit="doRegister(event)">
+      <div class="field"><label>Full Name</label><input type="text" id="rName" required placeholder="Ama Serwaa"/></div>
+      <div class="field"><label>Email Address</label><input type="email" id="rEmail" required placeholder="you@email.com"/></div>
+      <div class="field"><label>Mobile Number</label><input type="tel" id="rMobile" required placeholder="0241234567"/></div>
+      <div class="field"><label>Password</label><input type="password" id="rPassword" required minlength="4" placeholder="At least 4 characters"/></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Create Account</button>
+      <div class="form-foot">
+        <span class="text-muted">Already have an account? <a href="#" onclick="view='login';render();return false">Sign in</a></span>
+      </div>
+    </form>
+  `;
+}
+
+function renderOtp(){
+  const pending = load(DB.OTP, null);
+  box.innerHTML = `
+    <h2>Verify Your Mobile</h2>
+    <p class="sub">Enter the 6-digit code we sent to <b>${pending? pending.mobile : 'your phone'}</b>.</p>
+    <div class="otp-hint">📱 Simulated OTP code: <b>${pending? pending.otp : '------'}</b><br/><span style="font-size:.78rem">(In production this would be sent by SMS)</span></div>
+    <form onsubmit="doVerifyOtp(event)">
+      <div class="otp-inputs" id="otpInputs">
+        ${Array.from({length:6}).map((_,i)=>`<input maxlength="1" inputmode="numeric" data-i="${i}" />`).join('')}
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Verify & Continue</button>
+      <div class="form-foot">
+        <span class="text-muted">Wrong number? <a href="#" onclick="view='register';render();return false">Re-register</a></span>
+      </div>
+    </form>
+  `;
+  setupOtpInputs();
+}
+
+function renderForgot(){
+  box.innerHTML = `
+    <h2>Forgot Password</h2>
+    <p class="sub">Enter the mobile number you registered with and we'll send a reset code.</p>
+    <form onsubmit="doForgot(event)">
+      <div class="field"><label>Mobile Number</label><input type="tel" id="fMobile" required placeholder="0241234567"/></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Send Reset Code</button>
+      <div class="form-foot">
+        <a href="#" onclick="view='login';render();return false">← Back to sign in</a>
+      </div>
+    </form>
+  `;
+}
+
+function renderReset(){
+  const pending = load(DB.RESET, null);
+  box.innerHTML = `
+    <h2>Reset Password</h2>
+    <p class="sub">Enter the reset code and choose a new password.</p>
+    <div class="otp-hint">🔑 Simulated reset code: <b>${pending? pending.code : '------'}</b></div>
+    <form onsubmit="doReset(event)">
+      <div class="field"><label>Reset Code</label><input type="text" id="resetCode" required maxlength="6" placeholder="6-digit code"/></div>
+      <div class="field"><label>New Password</label><input type="password" id="newPass" required minlength="4" placeholder="New password"/></div>
+      <button type="submit" class="btn btn-primary" style="width:100%">Reset Password</button>
+      <div class="form-foot">
+        <a href="#" onclick="view='login';render();return false">← Back to sign in</a>
+      </div>
+    </form>
+  `;
+}
+
+function setupOtpInputs(){
+  const inputs = document.querySelectorAll('#otpInputs input');
+  inputs.forEach((inp,i)=>{
+    inp.addEventListener('input', e=>{
+      e.target.value = e.target.value.replace(/\D/g,'');
+      if(e.target.value && i < inputs.length-1) inputs[i+1].focus();
+    });
+    inp.addEventListener('keydown', e=>{
+      if(e.key==='Backspace' && !inp.value && i>0) inputs[i-1].focus();
+    });
+  });
+  inputs[0]?.focus();
+}
+
+/* Handlers */
+async function doLogin(e){
+  e.preventDefault();
+  try{
+    await loginUser(document.getElementById('loginMobile').value.trim(), document.getElementById('loginPassword').value);
+    toast('Welcome back! ✓','success');
+    setTimeout(()=> location.href = 'index.html', 700);
+  }catch(err){ toast(err.message,'error'); }
+}
+async function doRegister(e){
+  e.preventDefault();
+  try{
+    await registerUser({
+      name: document.getElementById('rName').value.trim(),
+      email: document.getElementById('rEmail').value.trim(),
+      mobile: document.getElementById('rMobile').value.trim(),
+      password: document.getElementById('rPassword').value
+    });
+    toast('OTP sent! Check the screen.','success');
+    view='otp'; render();
+  }catch(err){ toast(err.message,'error'); }
+}
+async function doVerifyOtp(e){
+  e.preventDefault();
+  const code = Array.from(document.querySelectorAll('#otpInputs input')).map(i=>i.value).join('');
+  try{
+    await verifyOtp(code);
+    toast('Account verified! 🎉','success');
+    setTimeout(()=> location.href='index.html', 800);
+  }catch(err){ toast(err.message,'error'); }
+}
+async function doForgot(e){
+  e.preventDefault();
+  try{
+    await requestPasswordReset(document.getElementById('fMobile').value.trim());
+    toast('Reset code generated.','success');
+    view='reset'; render();
+  }catch(err){ toast(err.message,'error'); }
+}
+async function doReset(e){
+  e.preventDefault();
+  try{
+    await resetPassword(document.getElementById('resetCode').value.trim(), document.getElementById('newPass').value);
+    toast('Password updated! Please sign in.','success');
+    view='login'; render();
+  }catch(err){ toast(err.message,'error'); }
+}
+
+render();
+</script>
+</body>
+</html>

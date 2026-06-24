@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Checkout — Pina's Thrift</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="siteNav"></div>
+
+<main class="container">
+  <div class="page-title">
+    <h1>Checkout</h1>
+    <p>Almost there — just confirm your details below.</p>
+  </div>
+
+  <div class="layout-2col">
+    <div class="panel">
+      <h3>Payment Information</h3>
+
+      <div class="payment-box">
+        <h4>💳 Mobile Money Payment</h4>
+        <p>Please send payment to Mobile Money account: <b>0591617017</b> or <b>0502365727</b> (Account Name: <b>Leticia Pinaman Dwumah</b>).</p>
+      </div>
+
+      <form onsubmit="placeOrder(event)">
+        <div class="field">
+          <label>Your Full Name (used as Payment Reference)</label>
+          <input type="text" id="custName" required placeholder="e.g. Ama Serwaa"/>
+        </div>
+        <div class="field">
+          <label>Mobile Number</label>
+          <input type="tel" id="custMobile" required placeholder="0241234567"/>
+        </div>
+        <div class="field">
+          <label>Email (optional)</label>
+          <input type="email" id="custEmail" placeholder="you@email.com"/>
+        </div>
+        <div class="field">
+          <label>Delivery Address / Notes</label>
+          <textarea id="custNotes" rows="3" placeholder="Where should we deliver?"></textarea>
+        </div>
+
+        <p class="text-muted" style="font-size:.85rem">By placing this order, you confirm that you have sent (or will send) the exact total amount to one of the Mobile Money accounts above using your full name as the reference.</p>
+
+        <button type="submit" class="btn btn-primary mt-2" style="width:100%">Place Order
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </form>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h3>Order Summary</h3>
+        <div id="summary"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Success Modal -->
+<div class="modal-bg" id="successModal">
+  <div class="modal" style="text-align:center">
+    <div style="width:64px;height:64px;border-radius:50%;background:#d1fae5;color:#065f46;display:grid;place-items:center;margin:0 auto 1rem">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h3 style="font-size:1.6rem">Order Placed Successfully! 🎉</h3>
+    <p class="text-muted">Save your Order ID to track your delivery progress.</p>
+    <div style="background:var(--rose-50);border:1.5px dashed var(--rose-300);padding:1rem;border-radius:12px;margin:1rem 0">
+      <div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Your Order ID</div>
+      <div class="serif" style="font-size:1.6rem;color:var(--rose-700);font-weight:700;margin-top:.2rem" id="newOrderId"></div>
+      <div style="margin-top:.5rem;font-size:.85rem">Reference name: <b id="newOrderRef"></b></div>
+    </div>
+    <p class="text-muted" style="font-size:.85rem">⚠️ Don't forget to complete your Mobile Money payment using your name as reference.</p>
+    <div class="row" style="margin-top:1rem;justify-content:center">
+      <a id="trackBtn" class="btn btn-primary">Track My Order</a>
+      <a href="index.html" class="btn btn-outline">Continue Shopping</a>
+    </div>
+  </div>
+</div>
+
+<div id="siteFooter"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+<script>
+mountChrome('');
+loadProducts();
+
+if(cartCount()===0){
+  // Allow viewing but nudge
+}
+
+const user = getCurrentUser();
+if(user){
+  setTimeout(()=>{
+    document.getElementById('custName').value = user.name || '';
+    document.getElementById('custMobile').value = user.mobile || '';
+    document.getElementById('custEmail').value = user.email || '';
+  }, 0);
+}
+
+function renderSummary(){
+  const items = getCart();
+  const sub = cartTotal();
+  const shipping = sub >= 500 ? 0 : (sub>0 ? 25 : 0);
+  const total = sub + shipping;
+
+  if(items.length===0){
+    document.getElementById('summary').innerHTML = `<div class="empty"><h3>Cart is empty</h3><a href="index.html" class="btn btn-primary mt-2">Shop</a></div>`;
+    return;
+  }
+  document.getElementById('summary').innerHTML = items.map(it => `
+    <div class="summary-row">
+      <span>${it.name} <span class="text-muted">× ${it.qty}</span></span>
+      <span>${money(it.price*it.qty)}</span>
+    </div>
+  `).join('') + `
+    <div class="summary-row" style="border-top:1px solid var(--line);margin-top:.4rem;padding-top:.6rem"><span>Subtotal</span><span>${money(sub)}</span></div>
+    <div class="summary-row"><span>Shipping</span><span>${shipping===0?'FREE':money(shipping)}</span></div>
+    <div class="summary-row total"><span>Total Due</span><span class="price">${money(total)}</span></div>
+  `;
+}
+
+async function placeOrder(e){
+  e.preventDefault();
+  const items = getCart();
+  if(items.length===0){ toast('Cart is empty','error'); return; }
+  const sub = cartTotal();
+  const shipping = sub >= 500 ? 0 : 25;
+  const total = sub + shipping;
+
+  const name = document.getElementById('custName').value.trim();
+  const mobile = document.getElementById('custMobile').value.trim();
+  const email = document.getElementById('custEmail').value.trim();
+
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true; btn.textContent = 'Placing order…';
+  try {
+    const order = await createOrder({
+      reference: name,
+      customerName: name,
+      customerMobile: mobile,
+      customerEmail: email,
+      items: items.map(i => ({ id:i.id, name:i.name, price:i.price, qty:i.qty })),
+      total
+    });
+    clearCart();
+    document.getElementById('newOrderId').textContent = order.id;
+    document.getElementById('newOrderRef').textContent = name;
+    document.getElementById('trackBtn').href = 'track.html?q=' + encodeURIComponent(order.id);
+    document.getElementById('successModal').classList.add('open');
+  } catch (err) {
+    toast(err.message || 'Failed to place order','error');
+    btn.disabled = false; btn.textContent = 'Place Order';
+  }
+}
+
+renderSummary();
+</script>
+</body>
+</html>

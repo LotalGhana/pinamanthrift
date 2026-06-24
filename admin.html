@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Dashboard — Pina's Thrift</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="siteNav"></div>
+
+<main class="container" id="main"></main>
+
+<!-- Add product modal -->
+<div class="modal-bg" id="prodModal">
+  <div class="modal">
+    <h3 id="modalTitle">Add New Product</h3>
+    <form onsubmit="saveProduct(event)">
+      <input type="hidden" id="pId"/>
+      <div class="field"><label>Product Name</label><input type="text" id="pName" required/></div>
+      <div class="field"><label>Category</label>
+        <select id="pCategory" required>
+          <option value="Skirt and Blouse">Skirt and Blouse</option>
+          <option value="Corporate Outfit">Corporate Outfit</option>
+          <option value="Kids Attire">Kids Attire</option>
+          <option value="Gowns">Gowns</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:1"><label>Price (GH₵)</label><input type="number" id="pPrice" min="0" step="0.01" required/></div>
+        <div class="field" style="flex:1"><label>Stock</label><input type="number" id="pStock" min="0" required/></div>
+      </div>
+      <div class="field"><label>Image URL</label><input type="url" id="pImage" required placeholder="https://..."/></div>
+      <div class="row" style="justify-content:flex-end;margin-top:.5rem">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Product</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="siteFooter"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+<script>
+mountChrome('admin');
+
+const main = document.getElementById('main');
+let activeTab = 'orders';
+
+async function render(){
+  if(!isAdmin()){ renderLogin(); return; }
+  main.innerHTML = '<div class="empty" style="margin-top:2rem">Loading dashboard…</div>';
+  await Promise.all([loadProducts(), loadOrders()]);
+  renderDashboard();
+}
+
+function renderLogin(){
+  main.innerHTML = `
+    <div class="auth-wrap">
+      <h2>Admin Sign In</h2>
+      <p class="sub">Restricted area. Authorized personnel only.</p>
+      <form onsubmit="doAdminLogin(event)">
+        <div class="field"><label>Username</label><input type="text" id="aUser" required placeholder="admin"/></div>
+        <div class="field"><label>Password</label><input type="password" id="aPass" required placeholder="admin"/></div>
+        <button type="submit" class="btn btn-primary" style="width:100%">Sign In</button>
+        <div class="otp-hint" style="margin-top:1rem">Demo credentials — username: <b>admin</b>, password: <b>admin</b></div>
+      </form>
+    </div>
+  `;
+}
+
+function doAdminLogin(e){
+  e.preventDefault();
+  try{
+    adminLogin(document.getElementById('aUser').value.trim(), document.getElementById('aPass').value);
+    toast('Welcome, Pina! 👑','success');
+    setTimeout(render, 500);
+  }catch(err){ toast(err.message,'error'); }
+}
+
+function renderDashboard(){
+  const products = getProducts();
+  const orders = getOrders();
+  const revenue = orders.filter(o=>o.status==='Delivered').reduce((s,o)=>s+o.total,0);
+  const pending = orders.filter(o=>o.status!=='Delivered').length;
+
+  main.innerHTML = `
+    <div class="page-title" style="display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:1rem">
+      <div>
+        <h1>Admin Dashboard</h1>
+        <p>Manage inventory and customer orders.</p>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="logout()">Sign Out</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="label">Total Products</div><div class="value">${products.length}</div></div>
+      <div class="stat"><div class="label">Total Orders</div><div class="value">${orders.length}</div></div>
+      <div class="stat"><div class="label">Pending Orders</div><div class="value">${pending}</div></div>
+      <div class="stat"><div class="label">Revenue (Delivered)</div><div class="value">${money(revenue)}</div></div>
+    </div>
+
+    <div class="tabs" style="max-width:380px;margin:1.5rem 0">
+      <button class="${activeTab==='orders'?'active':''}" onclick="activeTab='orders';render()">Orders</button>
+      <button class="${activeTab==='inventory'?'active':''}" onclick="activeTab='inventory';render()">Inventory</button>
+    </div>
+
+    <div id="tabContent"></div>
+  `;
+  if(activeTab==='orders') renderOrders(); else renderInventory();
+}
+
+function renderOrders(){
+  const orders = [...getOrders()].sort((a,b)=>b.createdAt-a.createdAt);
+  const c = document.getElementById('tabContent');
+  if(orders.length===0){
+    c.innerHTML = `<div class="empty"><h3>No orders yet</h3><p>Orders will appear here once customers checkout.</p></div>`;
+    return;
+  }
+  c.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Order ID</th><th>Customer</th><th>Reference</th><th>Items</th>
+            <th>Total</th><th>Placed</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${orders.map(o => `
+            <tr>
+              <td><b>${o.id}</b></td>
+              <td>
+                <div>${o.customerName}</div>
+                <div class="text-muted" style="font-size:.78rem">${o.customerMobile||''}</div>
+              </td>
+              <td>${o.reference}</td>
+              <td>${o.items.reduce((s,i)=>s+i.qty,0)} item(s)</td>
+              <td><b>${money(o.total)}</b></td>
+              <td style="font-size:.8rem">${formatDate(o.createdAt)}</td>
+              <td>
+                <select onchange="changeStatus('${o.id}', this.value)" style="padding:.4rem .6rem;border-radius:8px;border:1px solid var(--line);font-family:inherit">
+                  ${ORDER_STAGES.map(s => `<option value="${s}" ${o.status===s?'selected':''}>${s}</option>`).join('')}
+                </select>
+              </td>
+              <td><button class="btn btn-ghost btn-sm" onclick="viewOrderDetails('${o.id}')">View</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function viewOrderDetails(id){
+  const o = getOrders().find(x=>x.id===id);
+  if(!o) return;
+  const items = o.items.map(i=>`• ${i.name} × ${i.qty} = ${money(i.price*i.qty)}`).join('\n');
+  alert(`Order ${o.id}\nCustomer: ${o.customerName} (${o.customerMobile})\nReference: ${o.reference}\nEmail: ${o.customerEmail||'—'}\n\nItems:\n${items}\n\nTotal: ${money(o.total)}\nStatus: ${o.status}`);
+}
+
+async function changeStatus(id, status){
+  try {
+    await updateOrderStatus(id, status);
+    toast(`Order ${id} → ${status}`,'success');
+    await render();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function renderInventory(){
+  const products = getProducts();
+  const c = document.getElementById('tabContent');
+  c.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+      <h3 style="margin:0">All Products (${products.length})</h3>
+      <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ Add Product</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          ${products.map(p => `
+            <tr>
+              <td><img src="${p.image}" alt="" style="width:50px;height:60px;object-fit:cover;border-radius:6px"/></td>
+              <td><b>${p.name}</b></td>
+              <td>${p.category}</td>
+              <td>${money(p.price)}</td>
+              <td>
+                <input type="number" min="0" value="${p.stock}" style="width:70px;padding:.4rem;border:1px solid var(--line);border-radius:6px" onchange="(async()=>{ await updateProductStock('${p.id}', this.value); toast('Stock updated','success'); })()"/>
+              </td>
+              <td>
+                <button class="btn btn-ghost btn-sm" onclick="openEditModal('${p.id}')">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="confirmDelete('${p.id}')">Delete</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function confirmDelete(id){
+  if(confirm('Delete this product? This cannot be undone.')){
+    try {
+      await deleteProduct(id);
+      toast('Product deleted','success');
+      await render();
+    } catch (err) { toast(err.message, 'error'); }
+  }
+}
+
+function openAddModal(){
+  document.getElementById('modalTitle').textContent = 'Add New Product';
+  document.getElementById('pId').value = '';
+  document.getElementById('pName').value = '';
+  document.getElementById('pCategory').value = 'Skirt and Blouse';
+  document.getElementById('pPrice').value = '';
+  document.getElementById('pStock').value = '';
+  document.getElementById('pImage').value = '';
+  document.getElementById('prodModal').classList.add('open');
+}
+
+function openEditModal(id){
+  const p = getProducts().find(x=>x.id===id);
+  if(!p) return;
+  document.getElementById('modalTitle').textContent = 'Edit Product';
+  document.getElementById('pId').value = p.id;
+  document.getElementById('pName').value = p.name;
+  document.getElementById('pCategory').value = p.category;
+  document.getElementById('pPrice').value = p.price;
+  document.getElementById('pStock').value = p.stock;
+  document.getElementById('pImage').value = p.image;
+  document.getElementById('prodModal').classList.add('open');
+}
+
+function closeModal(){ document.getElementById('prodModal').classList.remove('open'); }
+
+async function saveProduct(e){
+  e.preventDefault();
+  const id = document.getElementById('pId').value;
+  const data = {
+    name: document.getElementById('pName').value.trim(),
+    category: document.getElementById('pCategory').value,
+    price: parseFloat(document.getElementById('pPrice').value),
+    stock: parseInt(document.getElementById('pStock').value),
+    image: document.getElementById('pImage').value.trim()
+  };
+  try {
+    if(id){
+      await updateProduct(id, data);
+      toast('Product updated','success');
+    } else {
+      await addProduct(data);
+      toast('Product added','success');
+    }
+    closeModal();
+    await render();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// close modal on bg click
+document.getElementById('prodModal').addEventListener('click', e=>{ if(e.target.id==='prodModal') closeModal(); });
+
+render();
+</script>
+</body>
+</html>

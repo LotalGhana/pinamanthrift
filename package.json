@@ -1,0 +1,9 @@
+{
+  "name": "pinas-thrift",
+  "version": "1.0.0",
+  "description": "Pina's Thrift — vanilla HTML/CSS/JS storefront with Vercel Postgres backend",
+  "private": true,
+  "dependencies": {
+    "@vercel/postgres": "^0.10.0"
+  }
+}
