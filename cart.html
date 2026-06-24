@@ -71,7 +71,7 @@ function renderCart(){
 
   const sub = cartTotal();
   const shipping = sub >= 500 ? 0 : 25;
-  const total = sub + shipping;
+  const total = sub;
   document.getElementById('summary').innerHTML = `
     <div class="summary-row"><span>Subtotal</span><span>${money(sub)}</span></div>
     <div class="summary-row"><span>Shipping</span><span>${shipping===0?'FREE':money(shipping)}</span></div>
