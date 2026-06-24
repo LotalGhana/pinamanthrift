@@ -105,7 +105,7 @@ function renderSummary(){
   const items = getCart();
   const sub = cartTotal();
   const shipping = sub >= 500 ? 0 : (sub>0 ? 25 : 0);
-  const total = sub + shipping;
+  const total = sub;
 
   if(items.length===0){
     document.getElementById('summary').innerHTML = `<div class="empty"><h3>Cart is empty</h3><a href="index.html" class="btn btn-primary mt-2">Shop</a></div>`;
@@ -129,7 +129,7 @@ async function placeOrder(e){
   if(items.length===0){ toast('Cart is empty','error'); return; }
   const sub = cartTotal();
   const shipping = sub >= 500 ? 0 : 25;
-  const total = sub + shipping;
+  const total = sub;
 
   const name = document.getElementById('custName').value.trim();
   const mobile = document.getElementById('custMobile').value.trim();
