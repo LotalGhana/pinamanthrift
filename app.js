@@ -11,8 +11,8 @@
 // Get them from Supabase: Project Settings → API
 // ===========================================================
 const SUPABASE_CONFIG = {
-  url: '',     // e.g. 'https://abcdefgh.supabase.co'
-  anonKey: '', // e.g. 'eyJhbGciOiJIUzI1NiIsInR5cCI6...'
+  url: '',     // e.g. 'https://sadgikmxvfrnlpotnjol.supabase.co'
+  anonKey: '', // e.g. 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZGdpa214dmZybmxwb3Ruam9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyODI3MzUsImV4cCI6MjA5Nzg1ODczNX0.KgC_phstGPu9uW5Pjvvm5QK63bhiEyRbLUrcbyL0h3I'
 };
 
 // ===========================================================
@@ -548,7 +548,7 @@ function renderFooter(){
         <a href="#">Accra, Ghana</a>
       </div>
     </div>
-    <div class="copy">© ${new Date().getFullYear()} Pina's Thrift • Curated by Leticia Pinaman Dwumah</div>
+    <div class="copy">© ${new Date().getFullYear()} Pina's Thrift • Curated by Lotal Ghana</div>
   </footer>`;
 }
 
