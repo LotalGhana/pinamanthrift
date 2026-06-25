@@ -489,7 +489,7 @@ function renderNav(active=''){
        </button>`
     : `<a href="auth.html" class="btn btn-outline btn-sm" style="padding:.5rem 1.1rem">Sign In</a>`;
   return `
-  <div class="topbar">✨ Free delivery on orders over GH₵ 500 — Quality pre-loved fashion, hand-picked by Pina ✨</div>
+  <div class="topbar">✨ Quality pre-loved fashion, hand-picked by Pina ✨</div>
   <nav class="nav">
     <div class="nav-inner">
       <a href="index.html" class="brand">
