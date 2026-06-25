@@ -500,7 +500,7 @@ function renderNav(active=''){
         <a href="index.html" class="${active==='shop'?'active':''}">Shop</a>
         <a href="index.html#categories" class="${active==='cat'?'active':''}">Categories</a>
         <a href="track.html" class="${active==='track'?'active':''}">Track Order</a>
-        <a href="admin.html" class="${active==='admin'?'active':''}">Admin</a>
+        
       </div>
       <div class="nav-actions">
         ${accountLink}
