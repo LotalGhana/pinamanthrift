@@ -545,7 +545,7 @@ function renderFooter(){
         <h4>Contact</h4>
         <a href="tel:0591617017">📞 0591617017</a>
         <a href="tel:0502365727">📞 0502365727</a>
-        <a href="#">Accra, Ghana</a>
+        <a href="#">Kumasi, Ghana</a>
       </div>
     </div>
     <div class="copy">© ${new Date().getFullYear()} Pina's Thrift • Curated by Lotal Ghana</div>
